@@ -1,0 +1,178 @@
+From 3859007a6474e8940dde9af03ed5f8ac0933b855 Mon Sep 17 00:00:00 2001
+From: Xiaohan Wang <wxh158849067@gmail.com>
+Date: Sat, 26 Sep 2026 00:57:16 +0800
+Subject: [PATCH] macOS: Flush the up-to-date buffer to native child windows
+
+When flushing to a native child window, read from the buffer that
+holds the latest content instead of unconditionally using the back
+buffer. Defer finalizeBackBuffer() until after the sub-window has
+been dispatched, and in flushSubWindow() pick the front buffer when
+it is not dirty (already up to date after the top-level window has
+flushed and swapped its buffers), otherwise finalize and use the
+back buffer as before.
+
+Previously the child always read the back buffer, which after the
+top-level swap could be an older, smaller surface, clipping newly
+exposed areas.
+
+Fixes: QTBUG-150346
+Change-Id: I7944240327c4d40934c514914457cc47bd28704e
+Reviewed-by: Assam Boudjelthia <assam.boudjelthia@qt.io>
+(cherry picked from commit 5fa0f033152f63e69e59d1d752dae4a0be690585)
+Reviewed-by: Qt Cherry-pick Bot <cherrypick_bot@qt-project.org>
+---
+ .../platforms/cocoa/qcocoabackingstore.mm     | 23 ++++--
+ .../qbackingstore/tst_qbackingstore.cpp       | 73 +++++++++++++++++++
+ 2 files changed, 91 insertions(+), 5 deletions(-)
+
+diff --git a/src/plugins/platforms/cocoa/qcocoabackingstore.mm b/src/plugins/platforms/cocoa/qcocoabackingstore.mm
+index 703cbff3d52d..f891ddcf8968 100644
+--- a/src/plugins/platforms/cocoa/qcocoabackingstore.mm
++++ b/src/plugins/platforms/cocoa/qcocoabackingstore.mm
+@@ -337,13 +337,13 @@
+         return;
+     }
+ 
+-    finalizeBackBuffer();
+-
+     if (flushedWindow != window()) {
+         flushSubWindow(flushedWindow);
+         return;
+     }
+ 
++    finalizeBackBuffer();
++
+     if (m_buffers.front()->isInUse() && !m_buffers.front()->isDirty()) {
+         qCInfo(lcQpaBackingStore) << "Asked to flush, but front buffer is up to date. Ignoring.";
+         return;
+@@ -416,6 +416,19 @@
+         subWindowBackingStore->m_clearSurfaceOnPaint = false;
+     }
+ 
++    // Pick the buffer that holds the latest content. If the front buffer is not dirty
++    // it is fully up to date, e.g. after the top-level window has already flushed and
++    // swapped its buffers on resize, in which case the back buffer may be an older,
++    // smaller surface. Otherwise the latest content was just painted into the back
++    // buffer, so finalize it and read from there, as we do for the top-level window.
++    GraphicsBuffer *sourceBuffer = nullptr;
++    if (!m_buffers.front()->isDirty()) {
++        sourceBuffer = m_buffers.front().get();
++    } else {
++        finalizeBackBuffer();
++        sourceBuffer = m_buffers.back().get();
++    }
++
+     // Query platform window for subwindow size, so that we
+     // incorporate any effects of the QHighDpiScaling layer.
+     auto subWindowSize = subWindow->handle()->geometry().size();
+@@ -435,10 +448,10 @@
+     auto scale = layer.contentsScale;
+     subviewRect = CGRectApplyAffineTransform(subviewRect, CGAffineTransformMakeScale(scale, scale));
+ 
+-    m_buffers.back()->lock(QPlatformGraphicsBuffer::SWReadAccess);
+-    const QImage *backingStoreImage = m_buffers.back()->asImage();
++    sourceBuffer->lock(QPlatformGraphicsBuffer::SWReadAccess);
++    const QImage *backingStoreImage = sourceBuffer->asImage();
+     painter.drawImage(subWindowLocalRect, *backingStoreImage, QRectF::fromCGRect(subviewRect));
+-    m_buffers.back()->unlock();
++    sourceBuffer->unlock();
+ 
+     painter.end();
+     subWindowBackingStore->endPaint();
+diff --git a/tests/auto/gui/kernel/qbackingstore/tst_qbackingstore.cpp b/tests/auto/gui/kernel/qbackingstore/tst_qbackingstore.cpp
+index 98ee189dcf76..8091bd1c0ce6 100644
+--- a/tests/auto/gui/kernel/qbackingstore/tst_qbackingstore.cpp
++++ b/tests/auto/gui/kernel/qbackingstore/tst_qbackingstore.cpp
+@@ -7,6 +7,7 @@
+ #include <qpa/qplatformintegration.h>
+ #include <private/qguiapplication_p.h>
+ #include <qpainter.h>
++#include <qscreen.h>
+ 
+ #include <QTest>
+ 
+@@ -35,6 +36,8 @@ private slots:
+     void flush();
+ 
+     void staticContents();
++
++    void childWindowFlush();
+ };
+ 
+ void tst_QBackingStore::initTestCase_data()
+@@ -364,5 +367,75 @@ void tst_QBackingStore::staticContents()
+     }
+ }
+ 
++void tst_QBackingStore::childWindowFlush()
++{
++    const auto *integration = QGuiApplicationPrivate::platformIntegration();
++    if (!integration->hasCapability(QPlatformIntegration::ScreenWindowGrabbing))
++        QSKIP("Platform does not support grabbing screen");
++    if (!integration->hasCapability(QPlatformIntegration::ChildWindows))
++        QSKIP("Platform does not support child windows");
++
++    QWindow parent;
++    parent.setGeometry(100, 100, 400, 400);
++    QWindow child(&parent);
++    QRect childRect(0, 0, 200, 200);
++    child.setGeometry(childRect);
++    child.show();
++    parent.show();
++    QVERIFY(QTest::qWaitForWindowExposed(&parent));
++    QVERIFY(QTest::qWaitForWindowExposed(&child));
++
++    QBackingStore backingStore(&parent);
++
++    // Prime double buffering at the initial small size.
++    QRect small(0, 0, 100, 100);
++    backingStore.resize(small.size());
++    backingStore.beginPaint(small);
++    {
++        QPainter p(backingStore.paintDevice());
++        p.fillRect(small, Qt::blue);
++    }
++    backingStore.endPaint();
++    backingStore.flush(small);
++    backingStore.flush(small, &child);
++
++    static const QColor greenColor = Qt::green;
++
++    // Grow to the full parent size, paint red with the child's
++    // area green, flush the top-level (swaps buffers) and then
++    // the native child.
++    QRect big(QPoint(), parent.size());
++    backingStore.resize(big.size());
++    backingStore.beginPaint(big);
++    {
++        QPainter p(backingStore.paintDevice());
++        p.fillRect(big, Qt::red);
++        p.fillRect(childRect, greenColor);
++    }
++    backingStore.endPaint();
++    backingStore.flush(big);
++    backingStore.flush(big, &child);
++
++    // Move the child over the red area, so that any part of the
++    // child that was not flushed shows red instead of green.
++    child.setPosition(200, 200);
++
++    QImage grab;
++    auto pixelAt = [&](const QPoint &point) {
++        return grab.pixelColor(point * grab.devicePixelRatio());
++    };
++
++    auto grabPixelAt = [&](const QPoint &point) {
++        grab = parent.screen()->grabWindow(parent.winId()).toImage();
++        return pixelAt(point);
++    };
++
++    QTRY_COMPARE(grabPixelAt(QPoint(250, 250)), greenColor);
++
++    QCOMPARE(pixelAt(QPoint(350, 250)), greenColor);
++    QCOMPARE(pixelAt(QPoint(250, 350)), greenColor);
++    QCOMPARE(pixelAt(QPoint(350, 350)), greenColor);
++}
++
+ #include <tst_qbackingstore.moc>
+ QTEST_MAIN(tst_QBackingStore);

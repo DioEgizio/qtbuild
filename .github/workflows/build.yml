@@ -1,0 +1,94 @@
+# SPDX-FileCopyrightText: 2026 DioEgizio
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Build Qt
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+
+ #         - os: windows-2022
+
+ #         - os: macos-26
+    env:
+      QT_VERSION: "6.12.0"
+      QT_MINOR: "6.12"
+      QT_TAR: "qt-everywhere-src-6.12.0"
+      QT_SHA256: "98ff4f44bac6ec3e1e62ee2a4316ae0e3d15badb015d753cc0268a20db52f165"
+      PATCHES_DIR: "${{ github.workspace }}/patches"  
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+              sudo apt-get update
+              sudo apt-get install -y --no-install-recommends \
+              ninja-build pkg-config perl \
+              libgl1-mesa-dev libegl1-mesa-dev libgles2-mesa-dev \
+              libx11-dev libx11-xcb-dev libxext-dev libxfixes-dev libxi-dev libxrender-dev \
+              libxcb1-dev libxcb-cursor-dev libxcb-glx0-dev libxcb-icccm4-dev \
+              libxcb-image0-dev libxcb-keysyms1-dev libxcb-randr0-dev \
+              libxcb-render0-dev libxcb-render-util0-dev libxcb-shape0-dev \
+              libxcb-shm0-dev libxcb-sync-dev libxcb-util-dev libxcb-xfixes0-dev \
+              libxcb-xinerama0-dev libxcb-xkb-dev \
+              libxkbcommon-dev libxkbcommon-x11-dev \
+              libfontconfig1-dev libfreetype-dev libdrm-dev libvulkan-dev \
+              libcups2-dev libdbus-1-dev libssl-dev perl
+
+      - name: Download Qt from download.qt.io
+        shell: bash
+        run: |
+              curl -fLO "https://download.qt.io/official_releases/qt/$QT_MINOR/$QT_VERSION/single/$QT_TAR.tar.xz"
+              printf "%s  %s\n" "$QT_SHA256" "$QT_TAR.tar.xz" | shasum -a 256 -c -
+
+      - name: Patch Qt
+        shell: bash
+        run : |
+              mkdir src && tar -xf $QT_TAR.tar.xz -C src/
+              cd src/$QT_TAR
+              # apply patches
+              if [ -d "$PATCHES_DIR" ]; then
+                find "$PATCHES_DIR" -type f \( -name '*.patch' -o -name '*.diff' \) | sort | while IFS= read -r p; do
+                  m=$(basename "$(dirname "$p")")
+                  if [ -d "$m" ]; then
+                    echo "Applying $p to $m"
+                    git -C "$m" apply --whitespace=nowarn "$p" || exit 1
+                  fi
+              done
+              fi
+              mkdir build && mkdir install 
+
+      - name: Configure, Build and Install Qt (Linux)
+        if: runner.os == 'Linux'
+        run: |
+              cd src/$QT_TAR/build
+              ../configure -prefix ../install/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+              cmake --build . --parallel 4
+              cmake --install
+
+      - name: Package Qt
+        run : |
+              tar -caf -C qt-${{ runner.os }}-$QT_VERSION.tar.zst src/$QT_TAR/install/
+
+      - name: Upload compiled Qt
+        uses: actions/upload-artifact@v7
+        with:
+          path: qt-${{ runner.os }}-${{ env.QT_VERSION }}.tar.zst
+          archive: false
+
