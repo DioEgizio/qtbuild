@@ -1,0 +1,5 @@
+# Upstream patches must keep LF endings on every platform. Without this, Git
+# for Windows (core.autocrlf=true) checks them out with CRLF and `git apply`
+# fails to match the LF files extracted from the Qt tarball.
+*.patch -text
+*.diff  -text
