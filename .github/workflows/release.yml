@@ -1,0 +1,33 @@
+name: Build Qt and make a release
+
+on:
+    push:
+        tags:
+        - "*"
+
+jobs:
+    build_qt:
+        name: Build Qt
+        uses: ./.github/workflows/build.yml
+    release_qt:
+        needs: build_qt
+        runs-on: ubuntu-slim
+        permissions:
+            contents: write
+        steps:
+            - name: Download artifacts
+              uses: actions/download-artifact@v8
+              with:
+                  merge-multiple: true
+
+            - name: Generate sha256 of artifacts
+              run: |
+                for f in *.tar.zst; do sha256sum "$f" > "$f.sha256"; done
+
+            - name: Release
+              uses: softprops/action-gh-release@v3
+              with:
+                fail_on_unmatched_files: true
+                files: |
+                  *.tar.zst
+                  *.tar.zst.sha256
