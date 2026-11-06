@@ -134,7 +134,7 @@ jobs:
             done
           fi
           cd "$QT_TAR"
-          mkdir build && mkdir install
+          mkdir build && mkdir qt
 
       - name: Configure, Build and Install Qt (Linux)
         if: runner.os == 'Linux'
@@ -142,7 +142,7 @@ jobs:
           cd "$QT_TAR/build"
           # since we don't do -no-icu qt depends on the icu provided by the system package whose lib could change on ubuntu version
           # I guess a fair compromise for proper internationalization support...
-          ../configure -prefix ../install/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+          ../configure -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
           cmake --build .
           cmake --install .
 
@@ -151,7 +151,7 @@ jobs:
         run: |
           openssl_dir="${{ github.workspace }}/openssl-3.5.9/universal"
           cd "$QT_TAR/build"
-          ../configure -prefix ../install/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -- -DOPENSSL_ROOT_DIR="$openssl_dir" -DOPENSSL_INCLUDE_DIR="$openssl_dir/include" -DOPENSSL_SSL_LIBRARY="$openssl_dir/lib/libssl.a" -DOPENSSL_CRYPTO_LIBRARY="$openssl_dir/lib/libcrypto.a" -DOPENSSL_USE_STATIC_LIBS=ON -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4
+          ../configure -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -- -DOPENSSL_ROOT_DIR="$openssl_dir" -DOPENSSL_INCLUDE_DIR="$openssl_dir/include" -DOPENSSL_SSL_LIBRARY="$openssl_dir/lib/libssl.a" -DOPENSSL_CRYPTO_LIBRARY="$openssl_dir/lib/libcrypto.a" -DOPENSSL_USE_STATIC_LIBS=ON -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4
           cmake --build .
           cmake --install .
 
@@ -160,7 +160,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location "$env:QT_TAR/build"
-          & "..\configure.bat" -prefix ../install/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+          & "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
           cmake --build .
           cmake --install .
 
@@ -169,14 +169,14 @@ jobs:
         shell: msys2 {0}
         run: |
           cd "$QT_TAR/build"
-          cmd //c "..\configure.bat" -prefix ../install/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+          cmd //c "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
           cmake --build .
           cmake --install .
 
       - name: Package Qt
         shell: bash
         run: |
-          tar -caf "qt-${{ matrix.name }}-${{ env.QT_VERSION }}.tar.zst" -C "$QT_TAR" install
+          tar -caf "qt-${{ matrix.name }}-${{ env.QT_VERSION }}.tar.zst" -C "$QT_TAR" qt
 
       - name: Upload compiled Qt
         uses: actions/upload-artifact@v7
