@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 DioEgizio
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Upstream patches must keep LF endings on every platform. Without this, Git
 # for Windows (core.autocrlf=true) checks them out with CRLF and `git apply`
 # fails to match the LF files extracted from the Qt tarball.

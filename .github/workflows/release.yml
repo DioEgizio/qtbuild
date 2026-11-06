@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 DioEgizio
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
 name: Build Qt and make a release
 
 on:
