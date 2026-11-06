@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 DioEgizio
+#
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Setup Qt
+description: Install and setup Qt
+
+inputs:
+  version:
+    description: Version of Qt
+    required: true
+  preset:
+    description: Name of the Qt preset to download
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Download Qt
+      shell: bash
+      run: |
+        mkdir qt && cd qt
+        curl -fLO https://github.com/DioEgizio/qtbuild/releases/download/${{ inputs.version }}/qt-${{ inputs.preset }}-${{ inputs.version }}.tar.zst && curl -fsSL https://github.com/DioEgizio/qtbuild/releases/download/${{ inputs.version }}/qt-${{ inputs.preset }}-${{ inputs.version }}.tar.zst.sha256 | sha256sum -c -
+        tar -xf qt-${{ inputs.preset }}-${{ inputs.version }}.tar.zst
+
+    - name: Set Environment Variables (macOS, Linux)
+      if: runner.os != 'Windows'
+      shell: bash
+      run: |
+        echo QT_DIR=${{ github.workspace }}/qt/install >> "$GITHUB_ENV"
+        echo QT6_DIR=${{ github.workspace }}/qt/install/lib/cmake >> "$GITHUB_ENV"
+        echo QT_PLUGIN_PATH=${{ github.workspace }}/qt/install/plugins >> "$GITHUB_ENV"
+        echo CMAKE_PREFIX_PATH=${{ github.workspace }}/qt/install:$CMAKE_PREFIX_PATH >> "$GITHUB_ENV"
+        echo "${{ github.workspace }}/qt/install/bin" >> "$GITHUB_PATH"
+
+    #the above step with git bash on windows doesn't set the path correctly????
+    - name: Set Environment Variables (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        "QT_DIR=${{ github.workspace }}\qt\install" | Out-File -Append $env:GITHUB_ENV
+        "QT6_DIR=${{ github.workspace }}\qt\install\lib\cmake" | Out-File -Append $env:GITHUB_ENV
+        "QT_PLUGIN_PATH=${{ github.workspace }}\qt\install\plugins" | Out-File -Append $env:GITHUB_ENV
+        "CMAKE_PREFIX_PATH=${{ github.workspace }}\qt\install;$env:CMAKE_PREFIX_PATH" | Out-File -Append $env:GITHUB_ENV
+        "${{ github.workspace }}\qt\install\bin" | Out-File -Append $env:GITHUB_PATH
+
+    - name: Add Qt to LD_LIBRARY_PATH on Linux
+      shell: bash
+      if: runner.os == 'Linux'
+      run: |
+        echo "LD_LIBRARY_PATH=${{ github.workspace }}/qt/install/bin:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+
