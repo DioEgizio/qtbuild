@@ -1,0 +1,44 @@
+From 0c1606d4f8e6bd50186122c43de3a2701a137553 Mon Sep 17 00:00:00 2001
+From: DioEgizio <dioegizio@protonmail.com>
+Date: Fri, 13 Nov 2026 10:10:38 +0100
+Subject: [PATCH] macOS: only have proper calendar permission requests on macOS
+ 14
+
+requestFullAccessToEventsWithCompletion and requestWriteOnlyAccessToEventsWithCompletion were introduced in macOS 14.0.
+so let's just Gate them behind @available and add a fallback for macos 13.
+this doesn't really matter because obviously we don't need calendar perms
+on prism anyways...
+---
+ .../darwin/qdarwinpermissionplugin_calendar.mm   | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
+
+diff --git a/src/corelib/platform/darwin/qdarwinpermissionplugin_calendar.mm b/src/corelib/platform/darwin/qdarwinpermissionplugin_calendar.mm
+index db0231d82f..ccf65c4e07 100644
+--- a/src/corelib/platform/darwin/qdarwinpermissionplugin_calendar.mm
++++ b/src/corelib/platform/darwin/qdarwinpermissionplugin_calendar.mm
+@@ -57,10 +57,18 @@
+         callback([self checkPermission:permission]);
+     };
+ 
+-    if (accessMode == QCalendarPermission::WriteOnly)
+-        [self.eventStore requestWriteOnlyAccessToEventsWithCompletion:completionHandler];
+-    else
+-        [self.eventStore requestFullAccessToEventsWithCompletion:completionHandler];
++    if (@available(macOS 14.0, *)) {
++        if (accessMode == QCalendarPermission::WriteOnly)
++            [self.eventStore requestWriteOnlyAccessToEventsWithCompletion:completionHandler];
++        else
++            [self.eventStore requestFullAccessToEventsWithCompletion:completionHandler];
++    } else {
++        // Write-only calendar access was introduced in macOS 14. On older
++        // versions the only option is the full access API, which is
++        // deprecated but still functional.
++        QT_IGNORE_DEPRECATIONS([self.eventStore requestAccessToEntityType:EKEntityTypeEvent
++            completion:completionHandler]);
++    }
+ }
+ 
+ @end
+-- 
+2.56.0
+
