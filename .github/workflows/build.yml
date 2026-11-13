@@ -45,6 +45,7 @@ jobs:
       QT_SHA256: "98ff4f44bac6ec3e1e62ee2a4316ae0e3d15badb015d753cc0268a20db52f165"
       PATCHES_DIR: "${{ github.workspace }}/patches"
       SSL_SHA256: "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
+      MACOS_DEPLOYMENT_TARGET: "13.0"
 
     steps:
       - name: Checkout repository
@@ -98,12 +99,12 @@ jobs:
           # we have to build twice: once for intel and the other time for apple silicon, then we use lipo to merge them together
           cd openssl-3.5.9
           mkdir intelbuild && cd intelbuild
-          perl ../Configure darwin64-x86_64 no-shared no-tests no-docs no-module no-apps --prefix="$openssl_src/x86_64" --openssldir="$openssl_src/x86_64/ssl" --libdir=lib --release -mmacosx-version-min=14.4
+          perl ../Configure darwin64-x86_64 no-shared no-tests no-docs no-module no-apps --prefix="$openssl_src/x86_64" --openssldir="$openssl_src/x86_64/ssl" --libdir=lib --release -mmacosx-version-min="$MACOS_DEPLOYMENT_TARGET"
           make -j"$(sysctl -n hw.ncpu)"
           make install_sw
           cd ..
           mkdir applebuild && cd applebuild
-          perl ../Configure darwin64-arm64 no-shared no-tests no-docs no-module no-apps --prefix="$openssl_src/arm64" --openssldir="$openssl_src/arm64/ssl" --libdir=lib --release -mmacosx-version-min=14.4
+          perl ../Configure darwin64-arm64 no-shared no-tests no-docs no-module no-apps --prefix="$openssl_src/arm64" --openssldir="$openssl_src/arm64/ssl" --libdir=lib --release -mmacosx-version-min="$MACOS_DEPLOYMENT_TARGET"
           make -j"$(sysctl -n hw.ncpu)"
           make install_sw
           cd ..
@@ -151,7 +152,7 @@ jobs:
         run: |
           openssl_dir="${{ github.workspace }}/openssl-3.5.9/universal"
           cd "$QT_TAR/build"
-          ../configure -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -- -DOPENSSL_ROOT_DIR="$openssl_dir" -DOPENSSL_INCLUDE_DIR="$openssl_dir/include" -DOPENSSL_SSL_LIBRARY="$openssl_dir/lib/libssl.a" -DOPENSSL_CRYPTO_LIBRARY="$openssl_dir/lib/libcrypto.a" -DOPENSSL_USE_STATIC_LIBS=ON -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET=14.4
+          ../configure -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -- -DOPENSSL_ROOT_DIR="$openssl_dir" -DOPENSSL_INCLUDE_DIR="$openssl_dir/include" -DOPENSSL_SSL_LIBRARY="$openssl_dir/lib/libssl.a" -DOPENSSL_CRYPTO_LIBRARY="$openssl_dir/lib/libcrypto.a" -DOPENSSL_USE_STATIC_LIBS=ON -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64" -DCMAKE_OSX_DEPLOYMENT_TARGET="$MACOS_DEPLOYMENT_TARGET"
           cmake --build .
           cmake --install .
 
