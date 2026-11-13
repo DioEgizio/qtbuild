@@ -55,7 +55,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: CLANG64
-          pacboy: clang:p compiler-rt:p libc++:p lld:p llvm-tools:p cmake:p ninja:p postgresql:p
+          pacboy: clang:p compiler-rt:p libc++:p lld:p llvm-tools:p cmake:p ninja:p postgresql:p cppwinrt:p
 
       - name: Setup MSVC
         if: matrix.name == 'Windows-MSVC' || matrix.name == 'Windows-MSVC-arm64'
@@ -160,7 +160,7 @@ jobs:
         shell: pwsh
         run: |
           Set-Location "$env:QT_TAR/build"
-          & "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+          & "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -feature-cpp-winrt
           cmake --build .
           cmake --install .
 
@@ -169,7 +169,7 @@ jobs:
         shell: msys2 {0}
         run: |
           cd "$QT_TAR/build"
-          cmd //c "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
+          cmd //c "..\configure.bat" -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -no-openssl -schannel -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion -feature-cpp-winrt
           cmake --build .
           cmake --install .
 
