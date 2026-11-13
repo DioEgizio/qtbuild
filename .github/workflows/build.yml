@@ -79,7 +79,7 @@ jobs:
             libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libfontconfig1-dev libfreetype-dev libdrm-dev libvulkan-dev \
-            libcups2-dev libdbus-1-dev libssl-dev
+            libcups2-dev libdbus-1-dev libssl-dev libatspi2.0-dev
 
       - name: Setup Dependencies (macOS)
         if: runner.os == 'macOS'
