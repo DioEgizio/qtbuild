@@ -79,7 +79,7 @@ jobs:
             libxcb-xinerama0-dev libxcb-xkb-dev \
             libxkbcommon-dev libxkbcommon-x11-dev \
             libfontconfig1-dev libfreetype-dev libdrm-dev libvulkan-dev \
-            libcups2-dev libdbus-1-dev libssl-dev libatspi2.0-dev
+            libcups2-dev libdbus-1-dev libssl-dev libatspi2.0-dev libicu-dev libglib2.0-dev
 
       - name: Setup Dependencies (macOS)
         if: runner.os == 'macOS'
@@ -141,11 +141,14 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd "$QT_TAR/build"
-          # since we don't do -no-icu qt depends on the icu provided by the system package whose lib could change on ubuntu version
-          # I guess a fair compromise for proper internationalization support...
           ../configure -prefix ../qt/ -release -opensource -confirm-license -nomake examples -nomake tests -submodules qtbase,qtimageformats,qtnetworkauth,qtsvg -openssl-linked -qt-zlib -qt-libpng -qt-libjpeg -qt-freetype -qt-pcre -qt-harfbuzz -qt-tiff -qt-webp -qt-sqlite -qt-doubleconversion
           cmake --build .
           cmake --install .
+          # let's copy over icu because its .so changes every ubuntu version. this let's us keep forwards compatibility with newer ubuntu versions
+          UBUNTU_LIB_PATH="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+          cp -a "$UBUNTU_LIB_PATH"/libicu{i18n,uc,data}.so.* "../qt/lib/"
+          # same for libssl. we compile against openssl 3 in this ubuntu version, but a newer one might only have openssl 4 and break it
+          cp -a "$UBUNTU_LIB_PATH"/lib{ssl,crypto}.so.* "../qt/lib/"
 
       - name: Configure, Build and Install Qt (macOS)
         if: runner.os == 'macOS'
