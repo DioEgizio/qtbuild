@@ -47,5 +47,5 @@ runs:
       shell: bash
       if: runner.os == 'Linux'
       run: |
-        echo "LD_LIBRARY_PATH=${{ github.workspace }}/qt/bin:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+        echo "LD_LIBRARY_PATH=${{ github.workspace }}/qt/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
 
