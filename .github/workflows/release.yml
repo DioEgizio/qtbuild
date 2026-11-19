@@ -24,8 +24,16 @@ jobs:
               with:
                   merge-multiple: true
 
-            - name: Generate sha256 of artifacts
+            - name: Rename artifacts to tag name and generate sha256
               run: |
+                tag_name=$(echo ${{ github.ref }} | grep -oE "[^/]+$")
+                for f in *.tar.zst; do
+                  # strip the version (last "-<version>.tar.zst" component) and use the tag instead
+                  name="${f%.tar.zst}"
+                  prefix="${name%-*}"
+                  new="${prefix}-${tag_name}.tar.zst"
+                  if [ "$f" != "$new" ]; then mv "$f" "$new"; fi
+                done
                 for f in *.tar.zst; do sha256sum "$f" > "$f.sha256"; done
 
             - name: Release
