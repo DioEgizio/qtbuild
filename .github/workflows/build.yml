@@ -39,10 +39,10 @@ jobs:
           - os: macos-26
             name: macOS
     env:
-      QT_VERSION: "6.12.0"
+      QT_VERSION: "6.12.1"
       QT_MINOR: "6.12"
-      QT_TAR: "qt-everywhere-src-6.12.0"
-      QT_SHA256: "98ff4f44bac6ec3e1e62ee2a4316ae0e3d15badb015d753cc0268a20db52f165"
+      QT_TAR: "qt-everywhere-src-6.12.1"
+      QT_SHA256: "cedb7a6dd4aec5d1c9d03df46028a523c9a274869528a6f3041667f47d14966f"
       PATCHES_DIR: "${{ github.workspace }}/patches"
       SSL_SHA256: "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
       MACOS_DEPLOYMENT_TARGET: "13.0"
