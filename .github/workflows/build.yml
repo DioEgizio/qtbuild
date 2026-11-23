@@ -39,13 +39,13 @@ jobs:
           - os: macos-26
             name: macOS
     env:
-      QT_VERSION: "6.12.1"
-      QT_MINOR: "6.12"
-      QT_TAR: "qt-everywhere-src-6.12.1"
-      QT_SHA256: "cedb7a6dd4aec5d1c9d03df46028a523c9a274869528a6f3041667f47d14966f"
+      QT_VERSION: "6.8.5"
+      QT_MINOR: "6.8"
+      QT_TAR: "qt-everywhere-opensource-src-6.8.5"
+      QT_SHA256: "c0537548bb3871cbb3cac85fb55813430d45ac4d5d4daa64bdf41f3c2ae65ff9"
       PATCHES_DIR: "${{ github.workspace }}/patches"
       SSL_SHA256: "603f5602e2eef00d77fbd429d34dcd5822bb301757a1bc9cdb24c670f1eb859a"
-      MACOS_DEPLOYMENT_TARGET: "13.0"
+      MACOS_DEPLOYMENT_TARGET: "12.0"
 
     steps:
       - name: Checkout repository
@@ -119,13 +119,15 @@ jobs:
       - name: Download Qt from download.qt.io
         shell: bash
         run: |
-          curl -fLO "https://download.qt.io/official_releases/qt/$QT_MINOR/$QT_VERSION/single/$QT_TAR.tar.xz"
+          curl -fLO "https://download.qt.io/archive/qt/$QT_MINOR/$QT_VERSION/single/$QT_TAR.tar.xz"
           printf "%s  %s\n" "$QT_SHA256" "$QT_TAR.tar.xz" | sha256sum -c -
 
       - name: Patch Qt
         shell: bash
         run: |
           tar -xf $QT_TAR.tar.xz
+          # the tarball is named qt-everywhere-opensource-src-$QT_VERSION but extracts to qt-everywhere-src-$QT_VERSION...
+          QT_TAR="qt-everywhere-src-$QT_VERSION" && echo "QT_TAR=qt-everywhere-src-$QT_VERSION" >> "$GITHUB_ENV"
           if [ -d "$PATCHES_DIR" ]; then
             find "$PATCHES_DIR" -type f \( -name '*.patch' -o -name '*.diff' \) | sort | while IFS= read -r p; do
               m=$(basename "$(dirname "$p")")
